@@ -20,6 +20,7 @@ using namespace std;
 
 typedef pair<int,int> pii;
 
+
 // Usamos variables globales para el grafo por comodidad y rapidez.
 vector< vector< int > > grafo;
 int beneficio[105][105];
@@ -29,11 +30,14 @@ int beneficioOriginal[105][105];
 // Para el dijkstra
 int padre[105];
 
+// Declaramos las funciones.
 vector<int> construirSolucion(int, vector<vector<int> >&);
 void dfsUnirComponente(vector<int> &);
 void dfsCompConexasR(int, int, vector<int>&, vector<vector<int> >&);
 vector < vector <int> > obtenerComponentesConexasR(int);
 pair< vector<int>, int > dijkstra(int,int,bool);
+void mejorarSolucion(vector<int> &, int );
+
 
 int main(int argc, char* argv[]){
 	int nroVertices;
@@ -122,12 +126,19 @@ int main(int argc, char* argv[]){
 
 	int valorSolucion = 0;
 
+
 	for (unsigned int i = 0 ; i < solucion.size() - 1;i++){
 		valorSolucion += beneficioOriginal[solucion[i]][solucion[i+1]];
 		valorSolucion -= costo[solucion[i]][solucion[i+1]];
 		beneficioOriginal[solucion[i]][solucion[i+1]] = 0;
 		beneficioOriginal[solucion[i+1]][solucion[i]] = 0;
 	}
+
+	//mejorarSolucion(solucion,valorSolucion);
+	// Puesto que mejorar la solucion depende de eliminar lados repetidos y
+	// el problema principal del algoritmo es que repetimos lados que no deberiamos
+	// este no mejora mucho la solucion.
+
 
 	// Si la solucion greedy no lo logra. Vamos a 0.
 	if (valorSolucion < 0){
@@ -169,8 +180,16 @@ vector<int> construirSolucion(int nroVertices, vector < vector <int> > &compCone
 
 
 	pair< vector<int>, int > respuestaDijkstra;
-	vector<int> nuevoCamino;
 
+
+	// Creamos un vector de visitados para saber que falta.
+
+	vector<int> visitado;
+	visitado.resize(nroVertices+1);
+	visitado.assign(nroVertices+1,0);
+
+
+	vector<int> nuevoCamino;
 	cambio = true;
 	while (cambio){
 		cambio = false;
@@ -180,6 +199,7 @@ vector<int> construirSolucion(int nroVertices, vector < vector <int> > &compCone
 			if (componenteLista[i] == 1) continue;
 			// Se intenta el menor camino hacia todas las otras
 			for (unsigned int j = 0; j < compConexas[i].size(); j++){
+				if (visitado[compConexas[i][j]]) continue;
 				respuestaDijkstra = dijkstra(ultimo,compConexas[i][j],true);
 				if (respuestaDijkstra.ff.size() == 0) continue;
 				else if (respuestaDijkstra.ss > mejorGanancia){
@@ -197,6 +217,9 @@ vector<int> construirSolucion(int nroVertices, vector < vector <int> > &compCone
 				beneficio[nuevoCamino[i]][nuevoCamino[i+1]] = 0;
 				beneficio[nuevoCamino[i+1]][nuevoCamino[i]] = 0;
 			}
+			for (int nodo: nuevoCamino){
+				visitado[nodo] = 1;
+			}
 			componenteLista[componente] = 1;
 			solucion.insert(solucion.end(),nuevoCamino.begin()+1,nuevoCamino.end());
 			// Se unen lados de la componente R conexa.
@@ -204,45 +227,50 @@ vector<int> construirSolucion(int nroVertices, vector < vector <int> > &compCone
 		}
 	}
 
-	// Creamos un vector de visitados para saber que falta.
-	vector<int> visitado;
-	visitado.resize(nroVertices+1);
-	visitado.assign(nroVertices+1,0);
-
-	for (int nodo: solucion){
-		visitado[nodo] = 1;
-	}
 
 
 	int cAdy,bAdy,nodoAux;
 
-	// Se agregan todos los lados de componentes R que falten.
-	for (unsigned int i = 1; i < compConexas.size(); i++){
-		if (compConexas[i].size() <= 1) continue;
-		for (int nodo: compConexas[i]){
-			if (visitado[nodo] != 0) continue;
-			for (int j = solucion.size() - 1; j >= 0; j--){
-				nodoAux = solucion[j];
-
-				bAdy = beneficio[nodoAux][nodo];
-				cAdy = costo[nodoAux][nodo];
-				if (cAdy == -1) continue;
-				if (bAdy >= 2*cAdy){
-					beneficio[nodoAux][nodo] = 0;
-					beneficio[nodo][nodoAux] = 0;
-					visitado[nodo] = 1;
-					solucion.insert(solucion.begin()+j+1,nodo);
-					solucion.insert(solucion.begin()+j+2,nodoAux);
-					break;
-				}
-			}
-		}
-	}
 	// Completamos la solucion
 	respuestaDijkstra = dijkstra(solucion[solucion.size()-1],1,true);
 	nuevoCamino = respuestaDijkstra.ff;
 
 	solucion.insert(solucion.end(),nuevoCamino.begin()+1,nuevoCamino.end());
+
+	for (int nodo: solucion){
+		visitado[nodo] = 1;
+	}
+
+	// Se agregan todos los lados de componentes R que falten.
+	bool avance = true;
+	while(avance){
+		avance = false;
+		for (unsigned int i = 1; i < compConexas.size(); i++){
+			if (compConexas[i].size() <= 1) continue;
+			for (int nodo: compConexas[i]){
+				if (visitado[nodo] != 0) continue;
+				for (int j = solucion.size() - 1; j >= 0; j--){
+					nodoAux = solucion[j];
+
+					bAdy = beneficio[nodoAux][nodo];
+					cAdy = costo[nodoAux][nodo];
+					if (cAdy == -1) continue;
+					if (bAdy >= 2*cAdy){
+						avance = true;
+						beneficio[nodoAux][nodo] = 0;
+						beneficio[nodo][nodoAux] = 0;
+						visitado[nodo] = 1;
+						solucion.insert(solucion.begin()+j+1,nodo);
+						solucion.insert(solucion.begin()+j+2,nodoAux);
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+
+
 
 	return solucion;
 
@@ -265,7 +293,7 @@ void dfsUnirComponente(vector<int> &v){
 			nodoAdy = grafo[nodoFinal][i];
 			bAdy = beneficio[nodoFinal][nodoAdy];
 			cAdy = costo[nodoFinal][nodoAdy];
-			if (bAdy >= 2*cAdy and vis[nodoAdy] == -1){
+			if (bAdy >= cAdy and vis[nodoAdy] == -1){
 				vis[nodoAdy] = 1;
 				beneficio[nodoFinal][nodoAdy] = 0;
 				beneficio[nodoAdy][nodoFinal] = 0;
@@ -287,7 +315,7 @@ void dfsCompConexasR(int vertice, int componente, vector<int> &visitado,
 	int nodo;
 	for (unsigned int i = 0; i < grafo[vertice].size(); i++){
 		nodo = grafo[vertice][i];
-		if (beneficio[vertice][nodo] >= 2*costo[vertice][nodo] and visitado[nodo] == -1){
+		if (beneficio[vertice][nodo] >= costo[vertice][nodo] and visitado[nodo] == -1){
 			dfsCompConexasR(nodo,componente,visitado,compConexas);
 		}
 	}
@@ -313,20 +341,17 @@ vector< vector<int> > obtenerComponentesConexasR(int nroVertices){
 	return compConexas;
 }
 
-// Retorna el menor camino basado unicamente en costo
-// Solo toma en cuenta el beneficio cuando useNegative es false.
-// En donde no usa ningun camino negativo.
+// Retorna el menor camino basado unicamente en costo, solo
+// recorre una vez cada nodo para evitar ciclos negativos.
 pair< vector<int>, int > dijkstra(int start, int end, bool useNegative){
 	priority_queue< pii, vector<pii>, greater<pii> > cola;
 
 	cola.push(mp(0,start));
-
 	pii actual;
 	int nodoActual;
 	int costoActual;
 	// Se resettea el arreglo de padres
 	memset(padre,-1,sizeof(padre));
-
 	// variables auxiliares para costo y beneficio.
 	int c,b; 
 
@@ -364,13 +389,12 @@ pair< vector<int>, int > dijkstra(int start, int end, bool useNegative){
 			ady = grafo[nodoActual][i];
 			c = costo[nodoActual][ady];
 			b = beneficio[nodoActual][ady];
-			if (padre[ady] == -1 and (useNegative or c <= b)){
+			if ((padre[ady] == -1) and (useNegative or c <= b)){
 				padre[ady] = nodoActual;
-				cola.push(mp(costoActual+c,ady));
+				cola.push(mp(costoActual+c - b,ady));
 			}
 		}
 	}
 
 	return mp(camino,-1000000);
 }
-
