@@ -1,0 +1,3 @@
+Instancia	Vo	%dHeurPlano	%dHeur	tHeur(seg)
+ALBAIDAA   	6266   	0.303   	34.711   	0.010
+ALBAIDAB   	4372   	0.000   	38.586   	0.008
